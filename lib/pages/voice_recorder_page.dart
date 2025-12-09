@@ -2,10 +2,29 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
+// Logger Import
+import 'package:logger/logger.dart'; // <--- Ensure this is imported
+
+import 'package:audio_recording/services/stt_api_service.dart';
+import 'package:audio_recording/services/voice_recorder_service.dart';
+import 'package:audio_recording/widgets/control_panel.dart';
+import 'package:audio_recording/widgets/model_selector.dart';
+import 'package:audio_recording/widgets/wave_painter.dart';
 import 'package:flutter/material.dart';
-import '../services/stt_api_service.dart';
-import '../services/voice_recorder_service.dart';
-import '../widgets/wave_painter.dart';
+
+// --- Initialize the Logger instance ---
+var appLogger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0, // Hide method call stack for clean messages
+    errorMethodCount: 5, // Show stacktrace on errors
+    colors: true,
+    printEmojis: true,
+    printTime: false,
+  ),
+);
+// ------------------------------------
+
 
 class VoiceRecorderPage extends StatefulWidget {
   const VoiceRecorderPage({super.key});
@@ -30,11 +49,13 @@ class _VoiceRecorderPageState extends State<VoiceRecorderPage> {
   double playProgress = 0;
 
   String? transcribedText;
+  SttModel selectedModel = SttModel.gemini;
 
   @override
   void initState() {
     super.initState();
     recorder.init();
+    appLogger.i('VoiceRecorderPage initialized.'); // Log initialization
   }
 
   @override
@@ -42,9 +63,109 @@ class _VoiceRecorderPageState extends State<VoiceRecorderPage> {
     recordTimer?.cancel();
     playTimer?.cancel();
     recorder.dispose();
+    appLogger.w('VoiceRecorderPage disposed.'); // Log disposal
     super.dispose();
   }
 
+  // --- Handlers with Logging ---
+
+  Future<void> _handleRecordToggle() async {
+    if (!isRecording) {
+      // Start recording
+      waveform.clear();
+      recordTicks = 0;
+      transcribedText = null;
+      await recorder.start();
+      startRecordTimer();
+      appLogger.i('Recording started.'); // Log success
+    } else {
+      // Stop recording
+      await recorder.stop();
+      recordTimer?.cancel();
+      setState(() => showPreview = true);
+      appLogger.i('Recording stopped. File path: ${recorder.filePath}'); // Log file path
+    }
+    setState(() => isRecording = !isRecording);
+  }
+
+  void _handleCancel() {
+    recorder.stopPlayer();
+    playTimer?.cancel();
+    setState(() {
+      showPreview = false;
+      isPlaying = false;
+      waveform.clear();
+      playProgress = 0;
+      transcribedText = null;
+    });
+    appLogger.w('Recording/Preview cancelled and state reset.'); // Log cancellation
+  }
+
+  Future<void> _handlePlayToggle() async {
+    if (isPlaying) {
+      // Pause playback
+      recorder.stopPlayer();
+      playTimer?.cancel();
+      setState(() => isPlaying = false);
+      appLogger.i('Playback paused.');
+    } else {
+      // Start playback
+      startPlayTimer();
+      await recorder.play(
+        onFinish: () {
+          setState(() {
+            isPlaying = false;
+            playProgress = 0;
+          });
+          appLogger.i('Playback finished automatically.');
+        },
+      );
+      setState(() => isPlaying = true);
+      appLogger.i('Playback started from file: ${recorder.filePath}');
+    }
+  }
+
+  // --- Backend Communication with Logging ---
+
+  Future<void> sendAudioToBackend() async {
+    if (recorder.filePath == null || !File(recorder.filePath!).existsSync()) {
+      appLogger.w('Attempted to send audio, but file path is null or file does not exist.');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      transcribedText = null;
+    });
+
+    try {
+      final String responseString = await SttApiService.sendAudioFile(
+        recorder.filePath!,
+        selectedModel,
+      );
+      final Map<String, dynamic> jsonResponse = jsonDecode(responseString);
+
+      final String transcription = jsonResponse['text'];
+
+      appLogger.d('API Response received successfully.');
+      appLogger.i('Transcription received: "$transcription"'); // Log success
+
+      setState(() {
+        transcribedText = transcription;
+      });
+    } catch (e, stackTrace) {
+      // Use appLogger.e for detailed, beautiful error logging
+      appLogger.e('Xato yuz berdi (Transcription Error): API call failed.', error: e, stackTrace: stackTrace);
+      setState(() {
+        transcribedText = 'Transkripsiya xizmatida xato yuz berdi.';
+      });
+    } finally {
+      setState(() => isLoading = false);
+      appLogger.d('Transcription process completed.');
+    }
+  }
+
+  // --- Timer and format functions (unchanged) ---
   void startRecordTimer() {
     recordTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       setState(() {
@@ -57,9 +178,12 @@ class _VoiceRecorderPageState extends State<VoiceRecorderPage> {
 
   void startPlayTimer() {
     playTimer?.cancel();
-    playTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+    final totalDurationInSeconds = recordTicks / 10;
+
+    playTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       setState(() {
-        playProgress += 0.02;
+        playProgress += (0.05 / totalDurationInSeconds);
+
         if (playProgress >= 1) {
           playProgress = 0;
           isPlaying = false;
@@ -76,48 +200,58 @@ class _VoiceRecorderPageState extends State<VoiceRecorderPage> {
     return '$m:$s';
   }
 
-  Future<void> sendAudioToBackend() async {
-    if (recorder.filePath == null || !File(recorder.filePath!).existsSync()) return;
-
-    setState(() => isLoading = true);
-
-    try {
-      final result = await SttApiService.sendAudioFile(recorder.filePath!);
-
-      setState(() {
-        transcribedText = result;
-      });
-    } catch (e) {
-      debugPrint(e.toString());
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
-
-
-
+  // --- Build Method (unchanged from your refactored version) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Ovozli Yozuv va Transkripsiya',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.purple,
+      ),
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // 1. Model Selector
+              ModelSelector(
+                selectedModel: selectedModel,
+                onChanged: (model) {
+                  if (model != null) {
+                    setState(() => selectedModel = model);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 30),
+
+              // 2. Recording Time/Remaining Time Display
               if (isRecording)
                 Text(
                   formatTime(recordTicks),
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.purple,
+                    color: Colors.red,
                   ),
                 ),
               const SizedBox(height: 20),
-              SizedBox(
+
+              // 3. Waveform Display
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.purple.shade100, width: 2),
+                ),
                 height: 100,
                 width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 child: CustomPaint(
                   painter: WavePainter(
                     waveform,
@@ -125,108 +259,61 @@ class _VoiceRecorderPageState extends State<VoiceRecorderPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
 
-              if (!showPreview)
-                GestureDetector(
-                  onTap: () async {
-                    if (!isRecording) {
-                      waveform.clear();
-                      recordTicks = 0;
-                      await recorder.start();
-                      startRecordTimer();
-                    } else {
-                      await recorder.stop();
-                      recordTimer?.cancel();
-                      setState(() => showPreview = true);
-                    }
-                    setState(() => isRecording = !isRecording);
-                  },
-                  child: CircleAvatar(
-                    radius: 70,
-                    backgroundColor:
-                    isRecording ? Colors.red : Colors.purple.shade200,
-                    child: Icon(
-                      isRecording ? Icons.stop : Icons.mic,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 50),
 
-              if (showPreview) ...[
-                const SizedBox(height: 30),
-                Text(
-                  formatTime((playProgress * recordTicks).toInt()),
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold),
+              // 4. Extracted Control Panel Widget!
+              ControlPanel(
+                isRecording: isRecording,
+                showPreview: showPreview,
+                isPlaying: isPlaying,
+                isLoading: isLoading,
+                timeText: formatTime(
+                  (recordTicks * (1 - playProgress)).toInt(),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                onRecordToggle: _handleRecordToggle,
+                onCancel: _handleCancel,
+                onPlayToggle: _handlePlayToggle,
+                onTranscribe: sendAudioToBackend,
+              ),
+
+              const SizedBox(height: 30),
+
+              // 5. Loading/Result Area
+              if (isLoading)
+                const Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      iconSize: 48,
-                      onPressed: () {
-                        recorder.stopPlayer();
-                        setState(() {
-                          showPreview = false;
-                          waveform.clear();
-                          playProgress = 0;
-                          transcribedText = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 20),
-                    IconButton(
-                      icon: Icon(
-                        isPlaying ? Icons.pause : Icons.play_arrow,
-                        color: Colors.purple,
-                      ),
-                      iconSize: 60,
-                      onPressed: () async {
-                        if (isPlaying) {
-                          recorder.stopPlayer();
-                          playTimer?.cancel();
-                          setState(() => isPlaying = false);
-                        } else {
-                          startPlayTimer();
-                          await recorder.play(onFinish: () {
-                            setState(() => isPlaying = false);
-                          });
-                          setState(() => isPlaying = true);
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 20),
-                    IconButton(
-                      icon:
-                      const Icon(Icons.check_circle, color: Colors.green),
-                      iconSize: 48,
-                      onPressed: sendAudioToBackend,
+                    CircularProgressIndicator(color: Colors.purple),
+                    SizedBox(height: 10),
+                    Text(
+                      'Transkripsiya kutilmoqda...',
+                      style: TextStyle(color: Colors.black54),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
 
-                if (isLoading)
-                  const CircularProgressIndicator(),
-
-                if (transcribedText != null)
-                  Padding(
+              if (transcribedText != null)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
                     padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.purple.shade200),
+                    ),
                     child: Text(
                       transcribedText!,
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.start,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: Colors.black87,
+                        height: 1.5,
                       ),
                     ),
                   ),
-              ],
+                ),
             ],
           ),
         ),
