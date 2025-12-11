@@ -32,7 +32,7 @@ class ModelSelector extends StatelessWidget {
                 title = 'Grok';
                 break;
               case SttModel.elevenLabs:
-                title = 'Premium (Yuqori aniqlik)';
+                title = 'Elevan Labs';
                 break;
             }
             return ListTile(

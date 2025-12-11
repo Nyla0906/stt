@@ -1,21 +1,26 @@
+// Assumed location: lib/services/stt_api_service.dart
+
+import 'package:audio_recording/configuration/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 import 'package:path/path.dart' as p;
 import 'package:mime/mime.dart';
 
-import 'logger.dart';
+import 'logger.dart'; // Assumed logger setup
 
 enum SttModel { gemini, grok, elevenLabs }
 
 class SttApiService {
-  // static const String baseUrl = 'http://192.168.20.36:8080'; // Saidalo
-  // static const String endpoint = '/api/voice/upload';
-
-  static const String baseUrl = 'https://710b5c68b77c.ngrok-free.app';
-  static const String endpoint = '/api/v1/transcribe';
+  static const String endpoint = '/api/voice/upload';
 
   //? POST
-  static Future<String> sendAudioFile(String filePath, SttModel model) async {
+  static Future<String> sendAudioFile(
+    String filePath,
+    SttModel model,
+    ApiEnvironment environment,
+  ) async {
+    final String baseUrl = ApiConfig.getBaseUrl(environment);
+
     String modelQueryParam;
     switch (model) {
       case SttModel.gemini:
@@ -50,7 +55,6 @@ class SttApiService {
     final mimeParts = mimeType.split('/');
     final type = mimeParts[0];
     final subtype = mimeParts[1];
-    // --------------------------------------------------------------------------
 
     final request = http.MultipartRequest('POST', url);
 
@@ -63,14 +67,13 @@ class SttApiService {
     );
 
     customLogger.i(
-      'Sending audio file to STT API. Model: $modelQueryParam, MIME: $mimeType',
+      'Sending audio file to STT API. Base URL: $baseUrl. Model: $modelQueryParam, MIME: $mimeType',
     );
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
 
     customLogger.d('API Status code: ${response.statusCode}');
-
     customLogger.d('API Response body: ${response.body}');
 
     if (response.statusCode != 200) {
