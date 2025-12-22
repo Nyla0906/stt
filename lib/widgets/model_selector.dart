@@ -1,55 +1,92 @@
-import 'package:audio_recording/services/stt_api_service.dart';
 import 'package:flutter/material.dart';
 
 class ModelSelector extends StatelessWidget {
-  final SttModel selectedModel;
-  final ValueChanged<SttModel?> onChanged;
+  final List<String> models;
+  final String? selectedModel;
+  final ValueChanged<String?>? onChanged;
+  final bool enabled;
 
   const ModelSelector({
     super.key,
+    required this.models,
     required this.selectedModel,
     required this.onChanged,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Transkripsiya Modelini tanlang:',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    if (models.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: models.map((model) => _buildModelTile(model)).toList(),
+    );
+  }
+
+  Widget _buildModelTile(String model) {
+    final isSelected = model == selectedModel;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.purple.shade50 : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? Colors.purple.shade300 : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        title: Text(
+          model.toUpperCase(),
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: enabled
+                ? (isSelected ? Colors.purple.shade700 : Colors.black87)
+                : Colors.grey,
           ),
-          ...SttModel.values.map((model) {
-            String title = '';
-            switch (model) {
-              case SttModel.gemini:
-                title = 'Gemini Flash (Kritik Tahlil)';
-                break;
-              case SttModel.grok:
-                title = 'Grok';
-                break;
-              case SttModel.elevenLabs:
-                title = 'Elevan Labs';
-                break;
-            }
-            return ListTile(
-              title: Text(title, style: TextStyle(fontSize: 14)),
-              leading: Radio<SttModel>(
-                value: model,
-                groupValue: selectedModel,
-                onChanged: onChanged,
+        ),
+        leading: Radio<String>(
+          value: model,
+          groupValue: selectedModel,
+          onChanged: enabled ? onChanged : null,
+          activeColor: Colors.purple,
+        ),
+        onTap: enabled ? () => onChanged?.call(model) : null,
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+        enabled: enabled,
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'Modellar mavjud emas',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-              onTap: () => onChanged(model),
-              // ListTile bosilganda ham ishga tushirish
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-            );
-          }).toList(),
-          const SizedBox(height: 20),
-        ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Iltimos, internetga ulanganingizni tekshiring',
+              style: TextStyle(color: Colors.grey[500], fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -17,4 +17,27 @@ void logBeautifully() {
   customLogger.e('Permission denied: RECORD_AUDIO is missing.');
 }
 
-// Output will look similar to the example you saw (with box borders, coloring, and icons).
+abstract class Excuse {
+  void give();
+}
+
+class Overslept implements Excuse {
+  @override
+  void give() {
+    print("I overslept. Couldn’t submit homework.");
+  }
+}
+
+class BusLate implements Excuse {
+  @override
+  void give() {
+    print("The bus was late. Assignment didn’t arrive on time.");
+  }
+}
+
+class Forgot implements Excuse {
+  @override
+  void give() {
+    print("I completely forgot about the homework. Sorry!");
+  }
+}

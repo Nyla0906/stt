@@ -3,6 +3,8 @@ import 'pages/voice_recorder_page.dart';
 
 void main() {
   runApp(const MyApp());
+
+
 }
 
 class MyApp extends StatelessWidget {

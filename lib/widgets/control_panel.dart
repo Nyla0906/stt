@@ -1,7 +1,6 @@
 import 'package:audio_recording/widgets/control_button.dart';
 import 'package:flutter/material.dart';
 
-// Callback function type definition
 typedef RecordingCallback = Future<void> Function();
 typedef TranscribeCallback = Future<void> Function();
 
@@ -12,7 +11,6 @@ class ControlPanel extends StatelessWidget {
   final bool isLoading;
   final String timeText;
 
-  // Actions
   final RecordingCallback onRecordToggle;
   final VoidCallback onCancel;
   final VoidCallback onPlayToggle;
@@ -34,11 +32,10 @@ class ControlPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (showPreview) {
-      // --- PREVIEW PANEL (After stopping recording) ---
       return Column(
         children: [
           Text(
-            timeText, // Qolgan vaqt
+            timeText,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
@@ -71,7 +68,6 @@ class ControlPanel extends StatelessWidget {
         ],
       );
     } else {
-      // --- RECORD BUTTON (Default state) ---
       return GestureDetector(
         onTap: onRecordToggle,
         child: AnimatedContainer(
