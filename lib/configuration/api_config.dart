@@ -6,7 +6,7 @@ enum ApiEnvironment {
 class ApiConfig {
   static const Map<ApiEnvironment, String> _baseUrls = {
     ApiEnvironment.saidalo: 'http://192.168.21.168:8080',
-    ApiEnvironment.muhammadjon: 'https://376be74a7b47.ngrok-free.app',
+    ApiEnvironment.muhammadjon: 'https://5576e1d5332b.ngrok-free.app',
   };
 
   static const Map<ApiEnvironment, String> _endpoints = {
@@ -25,9 +25,9 @@ class ApiConfig {
   static String getName(ApiEnvironment env) {
     switch (env) {
       case ApiEnvironment.saidalo:
-        return 'Saidalo (Local)';
+        return 'Saidalo';
       case ApiEnvironment.muhammadjon:
-        return 'Muhammadjon (ngrok)';
+        return 'Muhammadjon ';
     }
   }
 }
