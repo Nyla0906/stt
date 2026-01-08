@@ -1,17 +1,20 @@
 enum ApiEnvironment {
   saidalo, // http://192.168.21.168:8080
   muhammadjon, // https://9e82ccd5fd23.ngrok-free.app
+  abbos,
 }
 
 class ApiConfig {
   static const Map<ApiEnvironment, String> _baseUrls = {
-    ApiEnvironment.saidalo: 'http://192.168.21.168:8080',
+    ApiEnvironment.saidalo: "http://192.168.21.217:8080",
     ApiEnvironment.muhammadjon: 'https://5576e1d5332b.ngrok-free.app',
+    ApiEnvironment.abbos: 'http://192.168.21.217:8080',
   };
 
   static const Map<ApiEnvironment, String> _endpoints = {
     ApiEnvironment.saidalo: '/api/voice/upload',
     ApiEnvironment.muhammadjon: '/api/voice/upload',
+    ApiEnvironment.abbos: '/api/voice/upload',
   };
 
   static String getBaseUrl(ApiEnvironment env) {
@@ -28,6 +31,8 @@ class ApiConfig {
         return 'Saidalo';
       case ApiEnvironment.muhammadjon:
         return 'Muhammadjon ';
+      case ApiEnvironment.abbos:
+        return 'Abbos ';
     }
   }
 }
